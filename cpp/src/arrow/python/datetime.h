@@ -25,6 +25,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/int_util_internal.h"  // TODO is not public (missing in python build)
 #include "arrow/util/logging.h"
 
 // By default, PyDateTimeAPI is a *static* variable.  This forces
@@ -147,14 +148,26 @@ inline int64_t PyDelta_to_ms(PyDateTime_Delta* pytimedelta) {
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_us(PyDateTime_Delta* pytimedelta) {
-  return (PyDelta_to_s(pytimedelta) * 1000000LL +
-          PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta));
+inline Result<int64_t> PyDelta_to_us(PyDateTime_Delta* pytimedelta) {  // TODO adjust all *_to_* to return Result<int64_t>
+  int64_t i = PyDelta_to_s(pytimedelta);
+  if (arrow::internal::MultiplyWithOverflow(i, 1000000LL, &i)) {
+    return Status::Invalid("Value too large to fit in duration type");  // TODO include value string
+  }
+  if (arrow::internal::AddWithOverflow(i, PyDateTime_DELTA_GET_MICROSECONDS(pytimedelta), &i)) {
+    return Status::Invalid("Value too large to fit in duration type");
+  }
+  return i;
 }
 
 ARROW_PYTHON_EXPORT
-inline int64_t PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
-  return PyDelta_to_us(pytimedelta) * 1000LL;
+inline Result<int64_t> PyDelta_to_ns(PyDateTime_Delta* pytimedelta) {
+  Result<int64_t> us = PyDelta_to_us(pytimedelta);
+  if (!us.ok()) return us;
+  int64_t i = *us;  // TODO replace by bool _PyDelta_to_us(PyDateTime_Delta* pytimedelta, int64_t* out)
+  if (arrow::internal::MultiplyWithOverflow(i, 1000LL, &i)) {
+    return Status::Invalid("Value too large to fit in duration type");
+  }
+  return i;
 }
 
 ARROW_PYTHON_EXPORT

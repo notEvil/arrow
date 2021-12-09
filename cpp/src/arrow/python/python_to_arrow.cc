@@ -436,7 +436,7 @@ class PyValue {
           value = internal::PyDelta_to_ms(dt);
           break;
         case TimeUnit::MICRO:
-          value = internal::PyDelta_to_us(dt);
+          return internal::PyDelta_to_us(dt);  // TODO change type of value and use value =
           break;
         case TimeUnit::NANO:
           if (internal::IsPandasTimedelta(obj)) {
@@ -444,7 +444,7 @@ class PyValue {
             RETURN_IF_PYERROR();
             RETURN_NOT_OK(internal::CIntFromPython(nanos.obj(), &value));
           } else {
-            value = internal::PyDelta_to_ns(dt);
+            return internal::PyDelta_to_ns(dt);
           }
           break;
         default:
